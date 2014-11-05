@@ -149,3 +149,5 @@ class PageletAdmin(admin.ModelAdmin):
             obj.modified_by = request.user
         obj.save()
 admin.site.register(pagelets.Pagelet, PageletAdmin)
+
+admin.site.register(pagelets.SubNav)

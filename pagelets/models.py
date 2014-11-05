@@ -14,7 +14,7 @@ from pagelets import conf
 from taggit.managers import TaggableManager
 
 
-ORDER_CHOICES = [(x, x) for x in range(-10, 11)]
+ORDER_CHOICES = [(x, x) for x in range(-30, 31)]
 
 try:
     unicode
@@ -52,7 +52,6 @@ class PageletBase(models.Model):
 
     class Meta:
         abstract = True
-
 
 class Page(PageletBase):
     title = models.CharField(
@@ -109,7 +108,6 @@ class Page(PageletBase):
             ('NOFOLLOW, INDEX', 'NOFOLLOW, INDEX'),
         ]
     )
-
     tags = TaggableManager()
 
     def get_area_pagelets(self, area_slug):
@@ -339,6 +337,15 @@ class PageAttachment(models.Model):
 
     class Meta:
         ordering = ('order',)
+
+    def __unicode__(self):
+        return self.name
+    __str__ = __unicode__
+
+class SubNav(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField(null=True, blank=True)
+    page = models.ManyToManyField(Page, null=True, blank=True)
 
     def __unicode__(self):
         return self.name

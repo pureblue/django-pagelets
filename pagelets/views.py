@@ -12,15 +12,25 @@ from django.contrib import messages
 from django.core.urlresolvers import reverse
 from django.db.models import Max
 
-from pagelets.models import Pagelet, InlinePagelet, Page, PageAttachment
+from pagelets.models import Pagelet, InlinePagelet, Page, PageAttachment, SubNav
 from pagelets.forms import PageletForm, UploadForm
 from pagelets import conf
 
 
 def view_page(request, page_slug, template='pagelets/view_page.html'):
     page = get_object_or_404(Page, slug=page_slug)
+    sub_nav = None
+    sub_nav_list = None
+    try:
+        sub_nav = SubNav.objects.get(page=page)
+    except:
+        pass
+
+    if sub_nav:
+        sub_nav_list = sub_nav.page.all()
 
     context = {
+        'sub_nav_list': sub_nav_list,
         'page': page,
     }
     return render_to_response(

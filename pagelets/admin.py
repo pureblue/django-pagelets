@@ -21,6 +21,7 @@ JS_URLS = [
 for code, name, js, css in conf.CONTENT_TYPES:
     JS_URLS.extend(js)
 
+admin.site.register(pagelets.SubNav)
 
 class InlinePageletAdmin(admin.StackedInline):
     model = pagelets.InlinePagelet
@@ -149,5 +150,3 @@ class PageletAdmin(admin.ModelAdmin):
             obj.modified_by = request.user
         obj.save()
 admin.site.register(pagelets.Pagelet, PageletAdmin)
-
-admin.site.register(pagelets.SubNav)

@@ -10,7 +10,7 @@ from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.core.urlresolvers import reverse
-from django.db.models import Max
+from django.db.models import Max, get_model
 
 from pagelets.models import Pagelet, InlinePagelet, Page, PageAttachment, SubNav
 from pagelets.forms import PageletForm, UploadForm
@@ -143,7 +143,7 @@ def edit_pagelet(
             # otherwise, redirec to the change URL
 
             for pagelet_type in conf.PAGELET_TYPES:
-                pagelet_model = models.get_model(pagelet_type)
+                pagelet_model = get_model(pagelet_type)
                 try:
                     pagelet = pagelet_model.objects.get(pk=pagelet.pk)
                 except pagelet_model.DoesNotExist:

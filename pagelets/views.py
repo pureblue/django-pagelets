@@ -110,12 +110,11 @@ def edit_pagelet(
     if not redirect_to:
         redirect_to = '/'
 
-    pagelet = get_object_or_404(Pagelet, pk=pagelet_id)
-
     @user_passes_test(
         lambda u: u.has_perm('pagelets.change_pagelet'),
         login_url=settings.LOGIN_URL)
     def _(request):
+        pagelet = get_object_or_404(Pagelet, pk=pagelet_id)
         preview_form = None
         pagelet_preview = None
         if request.POST:

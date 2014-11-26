@@ -110,6 +110,7 @@ class Page(PageletBase):
     )
     tags = TaggableManager()
     raw_html = models.TextField(blank=True, null=True)
+    raw_js = models.TextField(blank=True, null=True)
 
     def get_area_pagelets(self, area_slug):
         """

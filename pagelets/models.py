@@ -111,6 +111,7 @@ class Page(PageletBase):
     tags = TaggableManager()
     raw_html = models.TextField(blank=True, null=True)
     raw_js = models.TextField(blank=True, null=True)
+    featured_image = models.FileField(upload_to="featured-image/%Y/%m/%d/")
 
     def get_area_pagelets(self, area_slug):
         """

@@ -116,6 +116,7 @@ class PageAdmin(admin.ModelAdmin):
         formset.save_m2m()
 admin.site.register(pagelets.Page, PageAdmin)
 
+admin.site.register(pagelets.Author)
 
 class PageletAdmin(admin.ModelAdmin):
     list_display = (

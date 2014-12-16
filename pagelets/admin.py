@@ -21,8 +21,6 @@ JS_URLS = [
 for code, name, js, css in conf.CONTENT_TYPES:
     JS_URLS.extend(js)
 
-admin.site.register(pagelets.SubNav)
-
 class InlinePageletAdmin(admin.StackedInline):
     model = pagelets.InlinePagelet
     extra = 0

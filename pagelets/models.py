@@ -21,6 +21,18 @@ try:
 except NameError:
     unicode = str
 
+class Author(models.Model):
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    decription = models.TextField(blank=True, null=True)
+    url = models.URLField(blank=True, null=True)
+
+    class Meta:
+        ordering = ('last_name',)
+
+    def __unicode__(self):
+        return self.last_name
+    __str__ = __unicode__
 
 class PageletBase(models.Model):
     creation_date = models.DateTimeField(
@@ -77,6 +89,7 @@ class Page(PageletBase):
             validators.validate_trailing_slash
         ]
     )
+    author = models.ForeignKey(Author, blank=True, null=True)
     description = models.TextField(
         _('description'),
         blank=True,
@@ -111,7 +124,7 @@ class Page(PageletBase):
     tags = TaggableManager()
     raw_html = models.TextField(blank=True, null=True)
     raw_js = models.TextField(blank=True, null=True)
-    featured_image = models.FileField(upload_to="featured-image/%Y/%m/%d/")
+    featured_image = models.FileField(upload_to="featured-image/%Y/%m/%d/", blank=True, null=True)
 
     def get_area_pagelets(self, area_slug):
         """
@@ -340,15 +353,6 @@ class PageAttachment(models.Model):
 
     class Meta:
         ordering = ('order',)
-
-    def __unicode__(self):
-        return self.name
-    __str__ = __unicode__
-
-class SubNav(models.Model):
-    name = models.CharField(max_length=255)
-    description = models.TextField(null=True, blank=True)
-    page = models.ManyToManyField(Page, null=True, blank=True)
 
     def __unicode__(self):
         return self.name

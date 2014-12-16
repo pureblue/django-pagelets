@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.core.urlresolvers import reverse
 from django.db.models import Max, get_model
 
-from pagelets.models import Pagelet, InlinePagelet, Page, PageAttachment, SubNav
+from pagelets.models import Pagelet, InlinePagelet, Page, PageAttachment
 from pagelets.forms import PageletForm, UploadForm
 from pagelets import conf
 

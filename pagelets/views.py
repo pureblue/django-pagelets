@@ -10,16 +10,27 @@ from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.core.urlresolvers import reverse
-from django.db.models import Max
+from django.db.models import Max, get_model
 
-from pagelets.models import Pagelet, InlinePagelet, Page, PageAttachment, CONTENT_AREAS
+from pagelets.models import Pagelet, InlinePagelet, Page, PageAttachment
 from pagelets.forms import PageletForm, UploadForm
+from pagelets import conf
 
 
 def view_page(request, page_slug, template='pagelets/view_page.html'):
     page = get_object_or_404(Page, slug=page_slug)
+    sub_nav = None
+    sub_nav_list = None
+    try:
+        sub_nav = SubNav.objects.get(page=page)
+    except:
+        pass
+
+    if sub_nav:
+        sub_nav_list = sub_nav.page.all()
 
     context = {
+        'sub_nav_list': sub_nav_list,
         'page': page,
     }
     return render_to_response(
@@ -41,7 +52,7 @@ def create_pagelet(request, pagelet_slug=None):
             pass
     content_area = ''
     if 'content_area' in request.GET and\
-       request.GET['content_area'] in [slug for slug, name in CONTENT_AREAS]:
+       request.GET['content_area'] in [slug for slug, name in conf.CONTENT_AREAS]:
         content_area = request.GET['content_area']
     pagelet = None
     if pagelet_slug:
@@ -99,12 +110,11 @@ def edit_pagelet(
     if not redirect_to:
         redirect_to = '/'
 
-    pagelet = get_object_or_404(Pagelet, pk=pagelet_id)
-
     @user_passes_test(
         lambda u: u.has_perm('pagelets.change_pagelet'),
         login_url=settings.LOGIN_URL)
     def _(request):
+        pagelet = get_object_or_404(Pagelet, pk=pagelet_id)
         preview_form = None
         pagelet_preview = None
         if request.POST:
@@ -121,6 +131,25 @@ def edit_pagelet(
                     )
                     pagelet_preview = form.save(commit=False, user=request.user)
         else:
+            # For non-Inline non-Shared pagelets they can be of a type that can't be edited in the
+            # front-end. Look for the form, if one is provided. If not, redirect to the admin change
+            # url for that object.
+
+            # Look at all the extension related names
+            # if present on this object, find the model
+            # look at the settings did it define a form?
+            # use that form if it is there
+            # otherwise, redirec to the change URL
+
+            for pagelet_type in conf.PAGELET_TYPES:
+                pagelet_model = get_model(pagelet_type)
+                try:
+                    pagelet = pagelet_model.objects.get(pk=pagelet.pk)
+                except pagelet_model.DoesNotExist:
+                    continue
+                else:
+                    redirect("admin:%s_change" % (pagelet_type.replace('.').lower(),), (pagelet.pk,))
+
             form = PageletForm(instance=pagelet)
 
         context = {

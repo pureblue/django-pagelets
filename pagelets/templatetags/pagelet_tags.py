@@ -5,7 +5,7 @@ from django.core.urlresolvers import reverse
 from django.template.loader import render_to_string
 from django.template import RequestContext, Context
 
-from pagelets.models import Pagelet, Page, DEFAULT_CONTENT_AREA
+from pagelets.models import Pagelet, Page
 
 register = template.Library()
 
@@ -37,7 +37,7 @@ def render_pagelet(context, pagelet):
     if pagelet:
         # add the slug separately because we need it in the template even
         # if this pagelet doesn't exist
-        context['pagelet_slug'] = pagelet.slug
+        context['pagelet_slug'] = getattr(pagelet, 'slug', None)
         context['page'] = parent_context.get('page', None)
         pagelet.rendered_content = pagelet.render(context)
     context['pagelet'] = pagelet
@@ -156,7 +156,7 @@ def page_teaser(context, page, num_words):
         if page.description:
             content = page.description
         else:
-            pagelets = page.get_area_pagelets(DEFAULT_CONTENT_AREA,
+            pagelets = page.get_area_pagelets('main',
                                               with_shared=False)
             pagelets.sort(lambda a, b: len(b.content) - len(a.content))
             for pagelet in pagelets:

@@ -9,34 +9,30 @@ from datetime import datetime
 
 from pagelets import validators
 from pagelets.utils import truncate_html_words
+from pagelets import conf
 
-PAGE_ATTACHMENT_PATH = getattr(settings, 'PAGE_ATTACHMENT_PATH', 'attachments/pages/')
+from taggit.managers import TaggableManager
 
-if 'tagging' in settings.INSTALLED_APPS:
-    from tagging.fields import TagField
-else:
-    TagField = None
 
-ORDER_CHOICES = [(x, x) for x in range(-10, 11)]
+ORDER_CHOICES = [(x, x) for x in range(-30, 31)]
 
 try:
-    settings.PAGELET_CONTENT_DEFAULT
-except AttributeError:
-    settings.PAGELET_CONTENT_DEFAULT = 'html'
+    unicode
+except NameError:
+    unicode = str
 
-# settings.PAGELET_TEMPLATE_TAGS is a list of template tag names that
-# will load before each pagelet is rendered, allowing custom template
-# tags to be included without including {% load <template_tag> %}
-tags = set(['pagelet_tags'])
-if hasattr(settings, 'PAGELET_TEMPLATE_TAGS'):
-    for tag in settings.PAGELET_TEMPLATE_TAGS:
-        tags.add(tag)
-AUTO_LOAD_TEMPLATE_TAGS = '{%% load %s %%}' % ' '.join(tags)
+class Author(models.Model):
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    decription = models.TextField(blank=True, null=True)
+    url = models.URLField(blank=True, null=True)
 
+    class Meta:
+        ordering = ('last_name',)
 
-CONTENT_AREAS = getattr(settings, 'PAGELET_CONTENT_AREAS', (('main', 'Main'),))
-DEFAULT_CONTENT_AREA = CONTENT_AREAS[0][0]
-
+    def __unicode__(self):
+        return self.last_name
+    __str__ = __unicode__
 
 class PageletBase(models.Model):
     creation_date = models.DateTimeField(
@@ -69,7 +65,6 @@ class PageletBase(models.Model):
     class Meta:
         abstract = True
 
-
 class Page(PageletBase):
     title = models.CharField(
         _('title'),
@@ -94,6 +89,7 @@ class Page(PageletBase):
             validators.validate_trailing_slash
         ]
     )
+    author = models.ForeignKey(Author, blank=True, null=True)
     description = models.TextField(
         _('description'),
         blank=True,
@@ -106,7 +102,6 @@ class Page(PageletBase):
         blank=True,
         help_text=_('Specify an alternative layout template to use for this '
                     'page.  Clear the selection to use the default layout.'),
-        choices=getattr(settings, 'PAGELET_BASE_TEMPLATES', []),
         default='pagelets/view_page.html',
     )
     meta_keywords = models.CharField(
@@ -126,20 +121,23 @@ class Page(PageletBase):
             ('NOFOLLOW, INDEX', 'NOFOLLOW, INDEX'),
         ]
     )
-    if TagField:
-        tags = TagField(blank=True, default='', max_length=255)
-    else:
-        tags = models.CharField(blank=True, default='', max_length=255)
+    tags = TaggableManager()
+    raw_html = models.TextField(blank=True, null=True)
+    raw_js = models.TextField(blank=True, null=True)
+    featured_image = models.FileField(upload_to="featured-image/%Y/%m/%d/", blank=True, null=True)
+    order = models.IntegerField(default="0")
 
-    def get_area_pagelets(self, area_slug, with_shared=True):
+    def get_area_pagelets(self, area_slug):
         """
         Combines and sorts the inline and shared pagelets for a given content
         area.  Pagelets without an order are given 0, so they show up
         in the middle.
         """
-        pagelets = list(self.inline_pagelets.filter(area=area_slug))
-        if with_shared:
-            pagelets.extend(self.shared_pagelets.filter(area=area_slug))
+
+        pagelets = []
+        for pagelet_type in conf.PAGELET_TYPES:
+            pagelet_model = models.get_model(pagelet_type)
+            pagelets.extend( pagelet_model.objects.filter(page=self).filter(area=area_slug) )
         pagelets.sort(key=lambda a: a.order or 0)
         return pagelets
 
@@ -151,52 +149,13 @@ class Page(PageletBase):
 
     def __unicode__(self):
         return self.title
-
-
-PAGELET_CONTENT_TYPES = getattr(settings, 'PAGELET_CONTENT_TYPES', (
-    ('html', 'HTML',
-     (),
-     {},),
-    ('markdown', 'Markdown',
-     (),
-     {},),
-    ('wymeditor', 'WYMeditor',
-     ('wymeditor/jquery.wymeditor.js',),
-     {},),
-    ('textile', 'Textile',
-     (),
-     {},),
-)) + getattr(settings, 'PAGELET_CONTENT_TYPES_EXTRA', ())
-
-
-def get_pagelet_type_assets(pagelet_type=None, base_scripts=None, base_styles=None):
-    all_scripts = [] if base_scripts is None else list(base_scripts)
-    all_styles = {} if base_styles is None else base_styles
-    for k, v in all_styles.items():
-        all_styles[k] = list(v)
-
-    for (val, label, scripts, styles) in PAGELET_CONTENT_TYPES:
-        if pagelet_type is None or val == pagelet_type:
-            for script in scripts:
-                if script not in all_scripts:
-                    all_scripts.append(script)
-            for key in styles:
-                all_styles.setdefault(key, [])
-                for stylesheet in styles:
-                    if stylesheet not in all_styles[key]:
-                        all_styles[key].append(stylesheet)
-    return tuple(all_scripts), dict((k, tuple(v)) for (k, v) in all_styles.items())
+    __str__ = __unicode__
 
 
 class Pagelet(PageletBase):
     """
     Primary model for storing pieces of static content in the database.
     """
-
-    CONTENT_TYPES = tuple(
-        (val, label) for (val, label, scripts, styles)
-        in PAGELET_CONTENT_TYPES
-    )
 
     # whenever you need to reference a pagelet in CSS, use its slug
     slug = models.CharField(
@@ -220,8 +179,7 @@ class Pagelet(PageletBase):
     type = models.CharField(
         _('content type'),
         max_length=32,
-        choices=CONTENT_TYPES,
-        default=settings.PAGELET_CONTENT_DEFAULT,
+        default='html',
         help_text=_('Controls the markup language and, in some cases, the '
                     'JavaScript editor to be used for this pagelet\'s content.'),
     )
@@ -234,7 +192,7 @@ class Pagelet(PageletBase):
     def render(self, context):
         # pagelets can automagically use pagelets templatetags
         # in order to remove boilerplate
-        loaded_cms = AUTO_LOAD_TEMPLATE_TAGS + self.content
+        loaded_cms = conf.AUTO_LOAD_TEMPLATE_TAGS + self.content
         """
         skip the first portions of render_to_string() ( finding the template )
          and go directly to compiling the template/pagelet
@@ -277,7 +235,16 @@ class Pagelet(PageletBase):
         if self.slug:
             return self.slug
         else:
-            return strip_tags(truncate_html_words(self.content, 5))
+            beginning = strip_tags(truncate_html_words(self.content, 5))
+            if beginning:
+                return beginning
+            else:
+                img_count = self.content.lower().count('<img')
+                if img_count:
+                    return "%s #%d (%s Images, no text)" % (type(self).__name__, self.id, img_count,)
+                else:
+                    return "%s #%d" % (type(self).__name__, self.id,)
+    __str__ = __unicode__
 
 
 class PlacedPageletBase(models.Model):
@@ -288,8 +255,7 @@ class PlacedPageletBase(models.Model):
     area = models.CharField(
         _('content area'),
         max_length=32,
-        choices=CONTENT_AREAS,
-        default=DEFAULT_CONTENT_AREA,
+        default='main',
         help_text=_('Specifies the placement of this pagelet on the page.'),
     )
     order = models.SmallIntegerField(
@@ -370,8 +336,6 @@ class SharedPagelet(PlacedPageletBase):
             self.__pagelet_dirty = False
         return super(SharedPagelet, self).save(*args, **kwargs)
 
-    def __unicode__(self):
-        return unicode(self.pagelet)
 
     class Meta:
         unique_together = (('pagelet', 'page'),)
@@ -381,7 +345,7 @@ class SharedPagelet(PlacedPageletBase):
 class PageAttachment(models.Model):
     page = models.ForeignKey(Page, related_name='attachments')
     name = models.CharField(max_length=255)
-    file = models.FileField(upload_to='attachments/pages/')
+    file = models.FileField(upload_to=conf.ATTACHMENT_PATH)
     order = models.SmallIntegerField(
         null=True,
         blank=True,
@@ -393,3 +357,4 @@ class PageAttachment(models.Model):
 
     def __unicode__(self):
         return self.name
+    __str__ = __unicode__
